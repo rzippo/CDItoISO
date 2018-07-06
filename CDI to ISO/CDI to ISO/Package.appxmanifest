@@ -21,6 +21,18 @@
         </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="cdi">
+            <uap:DisplayName>CDI to ISO</uap:DisplayName>
+            <uap:Logo>cdi-file.png</uap:Logo>
+            <uap:InfoTip>CDI disk image</uap:InfoTip>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.cdi</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
