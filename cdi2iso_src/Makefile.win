@@ -1,0 +1,14 @@
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before cdi2iso.exe all-after
+  
+
+cdi2iso.exe : src/cdi2iso.o
+	gcc.exe src/cdi2iso.o -o "cdi2iso.exe"
+
+src/cdi2iso.o: src/cdi2iso.c
+	gcc.exe -c src/cdi2iso.c -o src/cdi2iso.o
+ 
+
+clean: clean-custom
+	rm -f src/cdi2iso.o cdi2iso.exe
