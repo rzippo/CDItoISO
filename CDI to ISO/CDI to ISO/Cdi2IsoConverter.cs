@@ -10,22 +10,14 @@ namespace CDI_to_ISO
     internal enum ConversionResult
     {
         Success,
-        AlreadyIso,
-        FormatNotSupported,
         ConversionCanceled,
         IoException
     }
 
-    internal enum CopyResult
-    {
-        Success,
-        IoException,
-        CopyCanceled
-    }
-
     internal static class Cdi2IsoConverter
     {
-        private static readonly byte[] SyncHeader = {
+        private static readonly byte[] SyncHeader =
+        {
             0x00,
             0xFF,
             0xFF,
@@ -40,47 +32,6 @@ namespace CDI_to_ISO
             0x00
         };
 
-        private static readonly byte[] SyncHeaderMdfAudio = {
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0xC0,
-            0x80,
-            0x80,
-            0x80,
-            0x80
-        };
-
-        private static readonly byte[] SyncHeaderMdf = {
-            0x80,
-            0xC0,
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0x80,
-            0xC0,
-            0x80,
-            0x80,
-            0x80,
-            0x80
-        };
-
-        private static readonly byte[] Iso9660 = {
-            0x01,
-            0x43,
-            0x44,
-            0x30,
-            0x30,
-            0x31,
-            0x01,
-            0x00
-        };
-
         //Unnamed constants
         private const int Iso9660Pos = 32768;
         private const int SyncHeaderMdfPos = 2352;
@@ -90,8 +41,11 @@ namespace CDI_to_ISO
         //log strings
         private static int conversionId = 1;
 
-        private const string AlreadyIsoLog = "Input file is already in iso9660 format.";
-        private const string NotSupportedLog = "Sorry, this format is not supported";
+        private const string NormalImageLog = "Detected normal CDI image.";
+        private const string RawImageLog = "Detected raw CDI image.";
+        private const string PQImageLog = "Detected PQ CDI image.";
+        private const string CDGImageLog = "Detected CD+G CDI image.";
+        
         private const string StartingConversionLog = "File format ok, starting conversion...";
         private const string ConversionCompletedLog = "Conversion completed";
         private const string ConversionCanceledLog = "Conversion cancelled by user.";
@@ -114,9 +68,6 @@ namespace CDI_to_ISO
             CancellationToken token = default(CancellationToken)
         )
         {
-            //Todo: implement this algorithm
-            return ConversionResult.FormatNotSupported;
-
             if(conversionId != 1)
                 log?.WriteLine();
             log?.WriteLine(StartingNewConversionLog());
@@ -125,95 +76,90 @@ namespace CDI_to_ISO
             {
                 using (Stream sourceStream = await mdfFile.OpenStreamForReadAsync())
                 {
-                    sourceStream.Seek(Iso9660Pos, SeekOrigin.Current);
-                    byte[] iso9660HeaderBuf = new byte[8];
-                    sourceStream.Read(iso9660HeaderBuf, 0, 8);
-                    if (iso9660HeaderBuf.SequenceEqual(Iso9660)) //280 nagated
-                    {
-                        log?.WriteLine(AlreadyIsoLog);
-                        return ConversionResult.AlreadyIso;
-                    }
-
                     int seekEcc,
                         sectorSize,
-                        sectorData,
-                        seekHead;
+                        sectorData = 2048,
+                        seekHeader;
 
-                    sourceStream.Seek(0, SeekOrigin.Begin);
-                    byte[] syncHeaderBuf = new byte[12];
-                    sourceStream.Read(syncHeaderBuf, 0, 12);
+                    byte[] syncHeaderBuffer = new byte[SyncHeader.Length];
 
-                    sourceStream.Seek(SyncHeaderMdfPos, SeekOrigin.Begin);
-                    byte[] syncHeaderMdfBuf = new byte[12];
-                    sourceStream.Read(syncHeaderMdfBuf, 0, 12);
-
-                    if (syncHeaderBuf.SequenceEqual(SyncHeader)) //284
+                    sourceStream.Read(syncHeaderBuffer, 0, SyncHeader.Length);
+                    if (!syncHeaderBuffer.SequenceEqual(SyncHeader)) //59 negated
                     {
-                        if (syncHeaderMdfBuf.SequenceEqual(SyncHeaderMdf)) //289
-                        {
-                            //skip 291: no cue option
-                            //303
-                            /*BAD SECTOR */
-                            seekEcc = 384;
-                            sectorSize = 2448;
-                            sectorData = 2048;
-                            seekHead = 16;
-                        }
-                        else if (syncHeaderMdfBuf.SequenceEqual(SyncHeader)) //321
-                        {
-                            //skip 323: no cue option
-                            //335
-                            /*NORMAL IMAGE */
-                            seekEcc = 288;
-                            sectorSize = 2352;
-                            sectorData = 2048;
-                            seekHead = 16;
-                        }
-                        else //349
-                        {
-                            log?.WriteLine(NotSupportedLog);
-                            return ConversionResult.FormatNotSupported;
-                        }
+                        //97
+                        log?.WriteLine(NormalImageLog);
+                        seekHeader = 0;
+                        sectorSize = 2048;
+                        seekEcc = 0;
                     }
-                    else //356
+                    else
                     {
-                        if (syncHeaderMdfBuf.SequenceEqual(SyncHeaderMdfAudio)) //361
+                        //61
+                        seekHeader = 16;
+
+                        sourceStream.Seek(2352, SeekOrigin.Begin);
+                        sourceStream.Read(syncHeaderBuffer, 0, SyncHeader.Length);
+
+                        if (syncHeaderBuffer.SequenceEqual(SyncHeader))
                         {
-                            //368
-                            /*BAD SECTOR AUDIO */
-                            seekHead = 0;
-                            sectorSize = 2448;
-                            seekEcc = 96;
-                            sectorData = 2352;
+                            //69
+                            log?.WriteLine(RawImageLog);
+                            sectorSize = 2352;
+                            seekEcc = 288;
                         }
                         else
                         {
-                            log?.WriteLine(NotSupportedLog);
-                            return ConversionResult.FormatNotSupported;
+                            //76
+                            sourceStream.Seek(2368, SeekOrigin.Begin);
+                            sourceStream.Read(syncHeaderBuffer, 0, SyncHeader.Length);
+
+                            if (syncHeaderBuffer.SequenceEqual(SyncHeader))
+                            {
+                                //82
+                                log?.WriteLine(PQImageLog);
+                                seekEcc = 304;
+                                sectorSize = 2368;
+                            }
+                            else
+                            {
+                                //89
+                                log?.WriteLine(CDGImageLog);
+                                seekEcc = 384;
+                                sectorSize = 2448;
+                            }
                         }
                     }
 
                     log?.WriteLine(StartingConversionLog);
 
-                    //376
+                    //103
                     using (Stream destStream = await isoFile.OpenStreamForWriteAsync())
                     {
                         destStream.SetLength(0);
                         long sourceSectorsCount = sourceStream.Length / sectorSize;
-                        //long isoSize = sourceSectorsCount * sectorData;
-
+                       
                         sourceStream.Seek(0, SeekOrigin.Begin);
                         var sectorBuf = new byte[sectorData];
 
+                        int bw = 1;
+
                         int lastReportedProgress = 0;
-                        for (int i = 0; i < sourceSectorsCount; i++) //391
+                        for (int i = 0; i < sourceSectorsCount; i++) //107
                         {
-                            sourceStream.Seek(seekHead, SeekOrigin.Current);
+                            sourceStream.Seek(seekHeader, SeekOrigin.Current);
                             await sourceStream.ReadAsync(sectorBuf, 0, sectorData, token);
-                            await destStream.WriteAsync(sectorBuf, 0, sectorData, token);
+
+                            if (bw > 150)
+                            {
+                                if(sourceSectorsCount != i)
+                                    await destStream.WriteAsync(sectorBuf, 0, sectorData, token);
+                                else
+                                    await destStream.WriteAsync(sectorBuf, 0, 1559, token);
+                            }
                             
-                            //409
+                            //118
                             sourceStream.Seek(seekEcc, SeekOrigin.Current);
+                            bw++;
 
                             int currentProgress = (int)(i * ProgressMax / sourceSectorsCount);
                             if (currentProgress > lastReportedProgress)
@@ -223,8 +169,7 @@ namespace CDI_to_ISO
                                 lastReportedProgress = currentProgress;
                             }
                         }
-                        //416
-
+                        //122
                     }
                 }
 
@@ -243,64 +188,5 @@ namespace CDI_to_ISO
                 return ConversionResult.ConversionCanceled;
             }
         }
-
-        public static async Task<CopyResult> CopyAsync(
-            StorageFile mdfFile,
-            StorageFile isoFile,
-            IProgress<int> progress = null,
-            StreamWriter log = null,
-            CancellationToken token = default(CancellationToken)
-        )
-        {
-            //todo: check if this is even necessary
-            return CopyResult.Success;
-
-            log?.WriteLine(StartingCopyLog);
-            try
-            {
-                using (Stream sourceStream = await mdfFile.OpenStreamForReadAsync())
-                {
-                    using (Stream destStream = await isoFile.OpenStreamForWriteAsync())
-                    {
-                        int blockSize = 16 * 1024;
-                        long sourceBlocksCount = sourceStream.Length / blockSize;
-
-                        byte[] blockBuffer = new byte[blockSize];
-                        sourceStream.Seek(0, SeekOrigin.Begin);
-
-                        int lastReportedProgress = 0;
-                        for (int i = 0; i < sourceBlocksCount; i++)
-                        {
-                            await sourceStream.ReadAsync(blockBuffer, 0, blockSize, token);
-                            await destStream.WriteAsync(blockBuffer, 0, blockSize, token);
-
-                            int currentProgress = (int) (i * ProgressMax / sourceBlocksCount);
-                            if (currentProgress > lastReportedProgress)
-                            {
-                                progress?.Report(currentProgress);
-                                log?.WriteLine(CopyProgressLog(currentProgress));
-                                lastReportedProgress = currentProgress;
-                            }
-                        }
-                    }
-                }
-
-                progress?.Report(ProgressMax);
-                log?.WriteLine(CopyCompletedLog);
-                return CopyResult.Success;
-            }
-            catch (IOException)
-            {
-                log?.WriteLine(IoExceptionLog);
-                return CopyResult.IoException;
-            }
-            catch (OperationCanceledException)
-            {
-                log?.WriteLine(CopyCanceledLog);
-                return CopyResult.CopyCanceled;
-            }
-        }
     }
-
-
 }
