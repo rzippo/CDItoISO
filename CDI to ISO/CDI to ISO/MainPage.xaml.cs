@@ -268,7 +268,7 @@ namespace CDI_to_ISO
             else
             {
                 logger.Log("Review.LaunchUri");
-                bool reviewResult = await Windows.System.Launcher.LaunchUriAsync(new Uri("ms-windows-store://review/?ProductId=9PCZBVLLDSX4"));
+                bool reviewResult = await Windows.System.Launcher.LaunchUriAsync(new Uri("ms-windows-store://review/?ProductId=9ND0NV8QDNNQ"));
                 return reviewResult;
             }
         }
