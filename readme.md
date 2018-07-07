@@ -1,5 +1,5 @@
 A port of the [cdi2iso](https://sourceforge.net/projects/cdi2iso.berlios/) tool from Salvatore Santagati for the UWP platform.
-Meant to make the tool available on the Microsoft Store.
+Meant to make the tool available on the [Microsoft Store](https://www.microsoft.com/store/apps/9ND0NV8QDNNQ).
 
 Icons made editing together works by [Freepik](http://www.freepik.com/) from [www.flaticon.com](http://www.flaticon.com/).
 
