@@ -56,76 +56,71 @@ fdest = fopen(destfilename,"wb");
 
 fread(buf, sizeof(char), 16, fsource);
 
-if (!memcmp(SYNC_HEADER, buf, 12))
-	
+  if (!memcmp(SYNC_HEADER, buf, 12))
   {
-      seek_header = 16;
+    seek_header = 16;
       
+    fseek(fsource, 0L, SEEK_END);
+    fseek(fsource, 2352, SEEK_SET);
+    fread(buf, sizeof(char), 16, fsource);
+  	  
+    if (!memcmp(SYNC_HEADER, buf, 12))
+    {  
+      /* RAW IMAGE*/
+  		
+  		sector_size = 2352;
+    	seek_ecc = 288;
+  	}	
+    else
+    {
       fseek(fsource, 0L, SEEK_END);
-      fseek(fsource, 2352, SEEK_SET);
-      fread(buf, sizeof(char), 16, fsource);
-	  
-     if (!memcmp(SYNC_HEADER, buf, 12))
-     {  
-        /* RAW IMAGE*/
-		
-		sector_size = 2352;
-		seek_ecc = 288;
- 	 }	
-     
-      else
-            {
-              fseek(fsource, 0L, SEEK_END);
-              fseek(fsource, 2368, SEEK_SET);
-              fread(buf, sizeof(char), 16, fsource);  
+      fseek(fsource, 2368, SEEK_SET);
+      fread(buf, sizeof(char), 16, fsource);  
+      
+      if (!memcmp(SYNC_HEADER, buf, 12))
+      {
+        /* PQ IMAGE */
               
-              if (!memcmp(SYNC_HEADER, buf, 12))
-              {
-               /* PQ IMAGE */
-            
-           	   seek_ecc = 304;
-		       sector_size = 2368;  
-              }    
-               
-               else
-                   {
-                    /*CD+G IMAGE */
-                     
-                   	seek_ecc = 384;
-                   	sector_size = 2448;
-                   }    
-     
+        seek_ecc = 304;
+        sector_size = 2368;  
+      }    
+      else
+      {
+        /*CD+G IMAGE */
+       	seek_ecc = 384;
+        sector_size = 2448;
+      }    
     }
-   }     	
- 
-   else
-      {         
-      /*NORMAL IMAGE*/
-	  seek_header = 0;
-	  sector_size = 2048;
-	  seek_ecc = 0;
-	  }
+  }     	
+  else
+  {         
+    /*NORMAL IMAGE*/
+    seek_header = 0;
+    sector_size = 2048;
+    seek_ecc = 0;
+  }
 
-fseek(fsource, 0L, SEEK_END);
-source_length = (ftell(fsource)/sector_size);
-fseek(fsource, 0L, SEEK_SET);
+  fseek(fsource, 0L, SEEK_END);
+  source_length = (ftell(fsource)/sector_size);
+  fseek(fsource, 0L, SEEK_SET);
 
-for(i = 0; i < source_length; i++)
-   {
-	fseek(fsource, seek_header, SEEK_CUR); /* seek_header = 16 */
+  for(i = 0; i < source_length; i++)
+  {
+  	fseek(fsource, seek_header, SEEK_CUR); /* seek_header = 16 */
     fread(buf, sizeof(char), 2048, fsource);    
-	if (bw >150)
+    if (bw >150)
     { 
-    if (source_length != i ) fwrite(buf, sizeof(char), 2048, fdest);    
-    
-        else fwrite(buf, sizeof(char), 1559, fdest);
+      if (source_length != i ) 
+        fwrite(buf, sizeof(char), 2048, fdest);    
+      else fwrite(buf, sizeof(char), 1559, fdest);
     }    
+
     fseek(fsource, seek_ecc, SEEK_CUR);
     bw++;
-   }
+  }
 
-fclose(fdest);
-fclose(fsource);
+  fclose(fdest);
+  fclose(fsource);
 
-exit(EXIT_SUCCESS);
+  exit(EXIT_SUCCESS);
 }
